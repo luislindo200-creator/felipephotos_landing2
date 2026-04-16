@@ -24,6 +24,43 @@
     <!-- Hero Video Preload (Compatible Method) -->
     <link rel="prefetch" href="./assets/hero_video.mp4">
     
+    <!-- PWA & Push Notifications -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Felipephotos">
+    <link rel="apple-touch-icon" href="./assets/top_fotos_logo.png">
+
+    <!-- OneSignal SDK -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignal = window.OneSignal || [];
+      OneSignal.push(function() {
+        OneSignal.init({
+          appId: "YOUR_ONESIGNAL_APP_ID_HERE", // Substitua pelo seu ID
+          safari_web_id: "web.onesignal.auto.5c6b63c8-0b82-4c6e-8e4d-7a2d48d08b3e",
+          notifyButton: {
+            enable: true,
+            position: 'bottom-left',
+            size: 'medium',
+            theme: 'dark',
+            colors: {
+              'circle.background': '#39d353',
+              'circle.foreground': '#000',
+              'badge.background': '#e1306c',
+              'badge.foreground': '#fff',
+              'badge.bordercolor': '#fff',
+              'pulse.color': '#39d353',
+              'dialog.button.background.hover': '#2eb444',
+              'dialog.button.background.active': '#2eb444',
+              'dialog.button.background': '#39d353',
+              'dialog.button.foreground': '#000'
+            }
+          },
+        });
+      });
+    </script>
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -286,6 +323,17 @@
                 );
                 currentPage = 1;
                 render();
+            });
+        }
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('SW registrado com sucesso:', registration.scope);
+                }).catch(err => {
+                    console.log('Falha ao registrar SW:', err);
+                });
             });
         }
 
