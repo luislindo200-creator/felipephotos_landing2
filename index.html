@@ -31,34 +31,50 @@
     <meta name="apple-mobile-web-app-title" content="Felipephotos">
     <link rel="apple-touch-icon" href="./assets/app_icon.png">
 
-    <!-- OneSignal SDK -->
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <!-- Native Push Notification Logic -->
     <script>
-      window.OneSignal = window.OneSignal || [];
-      OneSignal.push(function() {
-        OneSignal.init({
-          appId: "YOUR_ONESIGNAL_APP_ID_HERE", // Substitua pelo seu ID
-          safari_web_id: "web.onesignal.auto.5c6b63c8-0b82-4c6e-8e4d-7a2d48d08b3e",
-          notifyButton: {
-            enable: true,
-            position: 'bottom-left',
-            size: 'medium',
-            theme: 'dark',
-            colors: {
-              'circle.background': '#39d353',
-              'circle.foreground': '#000',
-              'badge.background': '#e1306c',
-              'badge.foreground': '#fff',
-              'badge.bordercolor': '#fff',
-              'pulse.color': '#39d353',
-              'dialog.button.background.hover': '#2eb444',
-              'dialog.button.background.active': '#2eb444',
-              'dialog.button.background': '#39d353',
-              'dialog.button.foreground': '#000'
+      async function subscribeToPush() {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          
+          // Gerar chaves VAPID (Substitua pela sua chave pública real)
+          const vapidPublicKey = 'BOmvR7Q3W7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8'; 
+          
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: vapidPublicKey
+          });
+
+          // Enviar para Supabase
+          const { error } = await _supabase
+            .from('push_subscriptions')
+            .upsert({
+              endpoint: subscription.endpoint,
+              p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))),
+              auth: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth'))))
+            });
+
+          if (error) throw error;
+          console.log('Inscrito com sucesso no Push Nativo!');
+        } catch (err) {
+          console.error('Erro ao inscrever no Push:', err);
+        }
+      }
+
+      function checkNotificationPermission() {
+        if (!('Notification' in window)) return;
+        
+        if (Notification.permission === 'default') {
+          // Mostrar o brinde do Instagram (seu toast atual) mas também oferecer push
+          setTimeout(() => {
+            const toast = document.getElementById('insta-toast');
+            if (toast) {
+              toast.style.display = 'flex';
+              setTimeout(() => toast.classList.add('active'), 10);
             }
-          },
-        });
-      });
+          }, 5000);
+        }
+      }
     </script>
 
     <!-- Google Fonts -->
@@ -339,6 +355,11 @@
 
         // Inicializa o carregamento
         loadEvents();
+        
+        // Verifica permissão de notificação
+        window.addEventListener('load', () => {
+          setTimeout(checkNotificationPermission, 3000);
+        });
     </script>
 
 
@@ -374,15 +395,18 @@
         </div>
     </footer>
 
-    <!-- Instagram Toast -->
+    <!-- Push & Instagram Toast -->
     <div id="insta-toast" class="insta-toast">
         <i class="fas fa-times close-toast" onclick="closeToast()"></i>
         <div class="insta-toast-header">
-            <i class="fab fa-instagram insta-toast-icon"></i>
-            <h3 class="insta-toast-title">Acompanhe os Bastidores!</h3>
+            <i class="fas fa-bell insta-toast-icon"></i>
+            <h3 class="insta-toast-title">Fique por dentro!</h3>
         </div>
-        <p class="insta-toast-p">Siga nosso canal para receber alertas de novas fotos e promoções.</p>
-        <a href="https://www.instagram.com/channel/Abaf3VdfNrEuSJpk/?igsh=ZjVydXBuczRiNHcy" target="_blank" class="btn-insta-toast" onclick="closeToast()">Entrar no Canal</a>
+        <p class="insta-toast-p">Quer receber notificações de novas fotos e eventos em tempo real?</p>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button onclick="subscribeToPush(); closeToast();" class="btn-insta-toast" style="background: #39d353; color: #000;">Ativar Alertas</button>
+            <a href="https://www.instagram.com/channel/Abaf3VdfNrEuSJpk/?igsh=ZjVydXBuczRiNHcy" target="_blank" class="btn-insta-toast" style="background: transparent; border: 1px solid #39d353; color: #39d353;" onclick="closeToast()">Seguir Insta</a>
+        </div>
     </div>
 
     <!-- Main Navigation & UI Scripts -->

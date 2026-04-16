@@ -1,9 +1,10 @@
 {
-  "name": "Felipephotos",
+  "name": "Felipephotos | Fotografia Esportiva",
   "short_name": "Felipephotos",
-  "description": "Eternizando o esporte em Imperatriz/MA",
+  "description": "Eternizando o esporte em Imperatriz/MA. Encontre suas fotos e agende ensaios.",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#050505",
   "theme_color": "#39d353",
   "icons": [
@@ -11,12 +12,19 @@
       "src": "./assets/app_icon.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "./assets/app_icon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/app_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
