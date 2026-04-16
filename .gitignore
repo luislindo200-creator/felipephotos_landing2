@@ -1,0 +1,8 @@
+.DS_Store
+*.py
+*.plist
+.agents/
+.claude/
+skills-lock.json
+node_modules/
+dist/
