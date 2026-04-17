@@ -34,31 +34,43 @@
     <meta name="apple-mobile-web-app-title" content="Felipephotos">
     <link rel="apple-touch-icon" href="./assets/app_icon.png">
 
-    <!-- Native Push Notification Logic -->
+    <!-- Push Notification Logic -->
     <script>
+      // Chave pública VAPID real (gerada em 17/04/2026)
+      const VAPID_PUBLIC_KEY = 'BNylz2XGZBhxBrQT0tDOClHxyukGGsE0Bv4Fs5ERFRRxY4ey7HBvxGwv-M_qhQtC-zXBuhX2uSOnDA_3obsSSwM';
+
+      function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+      }
+
       async function subscribeToPush() {
+        if (!('PushManager' in window)) {
+          alert('Seu navegador não suporta notificações push.');
+          return;
+        }
         try {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') return;
+
           const registration = await navigator.serviceWorker.ready;
-          
-          // Gerar chaves VAPID (Substitua pela sua chave pública real)
-          const vapidPublicKey = 'BOmvR7Q3W7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8U7v6A2J8'; 
-          
           const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: vapidPublicKey
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
           });
 
-          // Enviar para Supabase
+          const p256dh = btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh'))));
+          const auth   = btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth'))));
+
           const { error } = await _supabase
             .from('push_subscriptions')
-            .upsert({
-              endpoint: subscription.endpoint,
-              p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))),
-              auth: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth'))))
-            });
+            .upsert({ endpoint: subscription.endpoint, p256dh, auth },
+                    { onConflict: 'endpoint' });
 
           if (error) throw error;
-          console.log('Inscrito com sucesso no Push Nativo!');
+          console.log('✅ Inscrito no Push com sucesso!');
         } catch (err) {
           console.error('Erro ao inscrever no Push:', err);
         }
@@ -66,9 +78,7 @@
 
       function checkNotificationPermission() {
         if (!('Notification' in window)) return;
-        
         if (Notification.permission === 'default') {
-          // Mostrar o brinde do Instagram (seu toast atual) mas também oferecer push
           setTimeout(() => {
             const toast = document.getElementById('insta-toast');
             if (toast) {
@@ -89,7 +99,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
     
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -125,6 +135,19 @@
         </div>
     </section>
 
+    <!-- Último Evento Banner -->
+    <section id="last-event-banner" class="last-event-banner" style="display:none;">
+        <div class="leb-bg" id="leb-bg"></div>
+        <div class="leb-overlay"></div>
+        <div class="container leb-content">
+            <div class="leb-badge">🔥 Novo Evento</div>
+            <h2 class="leb-title" id="leb-title">Carregando...</h2>
+            <p class="leb-date" id="leb-date"></p>
+            <a id="leb-link" href="#" target="_blank" class="leb-btn">
+                <i class="fas fa-camera"></i> Ver Minhas Fotos
+            </a>
+        </div>
+    </section>
 
     <section id="gallery" class="gallery">
         <div class="container">
@@ -173,9 +196,20 @@
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpaGZqZHRqd2lwcWppb3p2amVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNzIzOTYsImV4cCI6MjA5MTk0ODM5Nn0.FoT94cMZ6Y4S0KpxX6bvpVRC6tQqDXDJYJVwaO8wC1I";
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        function populateLastEventBanner(event) {
+            const banner = document.getElementById('last-event-banner');
+            if (!banner || !event) return;
+            document.getElementById('leb-bg').style.backgroundImage = `url('${event.capa}')`;
+            document.getElementById('leb-title').textContent = event.titulo;
+            document.getElementById('leb-date').textContent = `📅 ${event.data_evento} · ${event.modalidade || 'Esporte'}`;
+            document.getElementById('leb-link').href = event.link;
+            banner.style.display = 'block';
+            // Trigger entrance animation
+            requestAnimationFrame(() => banner.classList.add('active'));
+        }
+
         async function loadEvents() {
             try {
-                // Tentando carregar do Supabase primeiro
                 const { data, error } = await _supabase
                     .from('events')
                     .select('*')
@@ -187,17 +221,19 @@
                 }
 
                 // Ordenação inteligente por data (DD/MM/YYYY)
-                const sortedData = data.sort((a, b) => {
-                    const parseDate = (d) => {
-                        if (!d) return new Date(0);
-                        const [day, month, year] = d.split('/');
-                        return new Date(year, month - 1, day);
-                    };
-                    return parseDate(b.data_evento) - parseDate(a.data_evento);
-                });
+                const parseDate = (d) => {
+                    if (!d) return new Date(0);
+                    const [day, month, year] = d.split('/');
+                    return new Date(year, month - 1, day);
+                };
+                const sortedData = data.sort((a, b) => parseDate(b.data_evento) - parseDate(a.data_evento));
 
                 allEvents = sortedData;
                 currentFilteredEvents = allEvents;
+
+                // Popula o banner com o evento mais recente
+                populateLastEventBanner(sortedData[0]);
+
                 render();
             } catch (error) {
                 console.error("Erro ao carregar do Supabase, tentando JSON local:", error);
@@ -206,6 +242,7 @@
                     if (!response.ok) throw new Error('Falha ao carregar eventos locais');
                     allEvents = await response.json();
                     currentFilteredEvents = allEvents;
+                    populateLastEventBanner(allEvents[0]);
                     render();
                 } catch (localError) {
                     document.getElementById('events-grid').innerHTML = 
