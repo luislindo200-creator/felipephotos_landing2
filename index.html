@@ -37,7 +37,7 @@
     <!-- Push Notification Logic -->
     <script>
       // Chave pública VAPID real (gerada em 17/04/2026)
-      const VAPID_PUBLIC_KEY = 'BNylz2XGZBhxBrQT0tDOClHxyukGGsE0Bv4Fs5ERFRRxY4ey7HBvxGwv-M_qhQtC-zXBuhX2uSOnDA_3obsSSwM';
+      const VAPID_PUBLIC_KEY = 'BCslsEM5w3dS5FmMwC3FkYlMv5gQ8Jb-lyyJX0VfwwhxuSKf23EUdP-n7TkYDA4K-bO6DVVaSOUov4pQyc6YHus';
 
       function urlBase64ToUint8Array(base64String) {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -56,6 +56,11 @@
           if (permission !== 'granted') return;
 
           const registration = await navigator.serviceWorker.ready;
+          let oldSub = await registration.pushManager.getSubscription();
+          if (oldSub) {
+            await oldSub.unsubscribe();
+          }
+
           const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
